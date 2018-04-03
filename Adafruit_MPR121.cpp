@@ -20,86 +20,102 @@ Adafruit_MPR121::Adafruit_MPR121() {
 }
 
 boolean Adafruit_MPR121::begin(uint8_t i2caddr) {
-  Wire.begin();
+    Wire.begin();
+        
+    _i2caddr = i2caddr;
     
-  _i2caddr = i2caddr;
+    // soft reset
+    writeRegister(MPR121_SOFTRESET, 0x63);
+    delay(1);
+    for (uint8_t i=0; i<0x7F; i++) {
+        //Serial.print("$"); Serial.print(i, HEX); 
+        //Serial.print(": 0x"); Serial.println(readRegister8(i));
+    }
+      
+    writeRegister(MPR121_ECR, 0x0);
+    
+    uint8_t c = readRegister8(MPR121_CONFIG2);
+      
+    if (c != 0x24) return false;
+    
+    setThreshholds(12, 6);
+    writeRegister(MPR121_MHDR, 0x01);
+    writeRegister(MPR121_NHDR, 0x01);
+    writeRegister(MPR121_NCLR, 0x0E);
+    writeRegister(MPR121_FDLR, 0x00);
+    
+    writeRegister(MPR121_MHDF, 0x01);
+    writeRegister(MPR121_NHDF, 0x05);
+    writeRegister(MPR121_NCLF, 0x01);
+    writeRegister(MPR121_FDLF, 0x00);
+    
+    writeRegister(MPR121_NHDT, 0x00);
+    writeRegister(MPR121_NCLT, 0x00);
+    writeRegister(MPR121_FDLT, 0x00);
+    
+    writeRegister(MPR121_DEBOUNCE, 0);
 
-  // soft reset
-  writeRegister(MPR121_SOFTRESET, 0x63);
-  delay(1);
-  for (uint8_t i=0; i<0x7F; i++) {
-  //  Serial.print("$"); Serial.print(i, HEX); 
-  //  Serial.print(": 0x"); Serial.println(readRegister8(i));
-  }
-  
+    // Configuration Part 1
+    // see: https://www.nxp.com/docs/en/data-sheet/MPR121.pdf
+    //
+    // First Filter Iterations (FFI)  : 11 Encoding 3 - Sets samples taken to 34
+    // Charge Discharge Current (CDC) : 111111 Encoding 63 - Sets the current to 63 μA
+    // writeRegister(MPR121_CONFIG1, 0b10111111);
+    writeRegister(MPR121_CONFIG1, 0b11111111);
 
-  writeRegister(MPR121_ECR, 0x0);
+    // Configuration Part 2
+    //
+    // Charge Discharge Time (CDT)    : 001 Encoding 1 - Time is set to 0.5 μs (Default)
+    // Second Filter Iterations (SFI) : 11 Encoding 3 - Number of samples is set to 18
+    // Electrode Sample Interval (ESI): 100 Encoding 4 - Period set to 16 ms (Default)
+    // writeRegister(MPR121_CONFIG2, 0b00110100);
+    writeRegister(MPR121_CONFIG2, 0b00111100);
 
-  uint8_t c = readRegister8(MPR121_CONFIG2);
-  
-  if (c != 0x24) return false;
+    // Configuration Part 3: Enable first 2 electrodes
+    //
+    // CL         : 11    - Baseline tracking enabled, initial baseline value is loaded with all 10 bits of the first electrode data value
+    // ELEPROX_EN : 00    - Proximity Detection is disabled (Default)
+    // ELE_EN     : 0010  - Run Mode with ELE0~ELE1 for electrode detection enabled
+    writeRegister(MPR121_ECR, 0b11000010);
 
+    // writeRegister(MPR121_AUTOCONFIG0, 0x8F);
+    // writeRegister(MPR121_UPLIMIT, 150);
+    // writeRegister(MPR121_TARGETLIMIT, 100); // should be ~400 (100 shifted)
+    // writeRegister(MPR121_LOWLIMIT, 50);
+    // enable all electrodes
+    // writeRegister(MPR121_ECR, 0x8F);  // Default: start with first 5 bits of baseline tracking
 
-  setThreshholds(12, 6);
-  writeRegister(MPR121_MHDR, 0x01);
-  writeRegister(MPR121_NHDR, 0x01);
-  writeRegister(MPR121_NCLR, 0x0E);
-  writeRegister(MPR121_FDLR, 0x00);
-
-  writeRegister(MPR121_MHDF, 0x01);
-  writeRegister(MPR121_NHDF, 0x05);
-  writeRegister(MPR121_NCLF, 0x01);
-  writeRegister(MPR121_FDLF, 0x00);
-
-  writeRegister(MPR121_NHDT, 0x00);
-  writeRegister(MPR121_NCLT, 0x00);
-  writeRegister(MPR121_FDLT, 0x00);
-
-  writeRegister(MPR121_DEBOUNCE, 0);
-  writeRegister(MPR121_CONFIG1, 0x10); // default, 16uA charge current
-  writeRegister(MPR121_CONFIG2, 0x20); // 0.5uS encoding, 1ms period
-
-//  writeRegister(MPR121_AUTOCONFIG0, 0x8F);
-
-//  writeRegister(MPR121_UPLIMIT, 150);
-//  writeRegister(MPR121_TARGETLIMIT, 100); // should be ~400 (100 shifted)
-//  writeRegister(MPR121_LOWLIMIT, 50);
-  // enable all electrodes
-  writeRegister(MPR121_ECR, 0x8F);  // start with first 5 bits of baseline tracking
-
-  return true;
+    return true;
 }
 
 void Adafruit_MPR121::setThreshholds(uint8_t touch, uint8_t release) {
-
-  setThresholds(touch, release);
-  }
+    setThresholds(touch, release);
+}
 
 void Adafruit_MPR121::setThresholds(uint8_t touch, uint8_t release) {
-  for (uint8_t i=0; i<12; i++) {
-    writeRegister(MPR121_TOUCHTH_0 + 2*i, touch);
-    writeRegister(MPR121_RELEASETH_0 + 2*i, release);
-  }
+    for (uint8_t i=0; i<12; i++) {
+        writeRegister(MPR121_TOUCHTH_0 + 2*i, touch);
+        writeRegister(MPR121_RELEASETH_0 + 2*i, release);
+    }
 }
 
 uint16_t  Adafruit_MPR121::filteredData(uint8_t t) {
-  if (t > 12) return 0;
-  return readRegister16(MPR121_FILTDATA_0L + t*2);
+    if (t > 12) return 0;
+    return readRegister16(MPR121_FILTDATA_0L + t*2);
 }
 
 uint16_t  Adafruit_MPR121::baselineData(uint8_t t) {
-  if (t > 12) return 0;
-  uint16_t bl = readRegister8(MPR121_BASELINE_0 + t);
-  return (bl << 2);
+    if (t > 12) return 0;
+    uint16_t bl = readRegister8(MPR121_BASELINE_0 + t);
+    return (bl << 2);
 }
 
 uint16_t  Adafruit_MPR121::touched(void) {
-  uint16_t t = readRegister16(MPR121_TOUCHSTATUS_L);
-  return t & 0x0FFF;
+    uint16_t t = readRegister16(MPR121_TOUCHSTATUS_L);
+    return t & 0x0FFF;
 }
 
 /*********************************************************************/
-
 
 uint8_t Adafruit_MPR121::readRegister8(uint8_t reg) {
     Wire.beginTransmission(_i2caddr);

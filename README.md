@@ -1,6 +1,18 @@
 # Adafruit_MPR121_Library
 <!-- START COMPATIBILITY TABLE -->
 
+## Increased sensitivity
+
+This fork has been updated to increase the sensitivity of the default library (see NXP's [spec sheet](https://www.nxp.com/docs/en/data-sheet/MPR121.pdf) for details). 
+
+- 34 First Filter Iterations (default is 6)
+- 18 Second Filter Iterations (default is 4)
+- Charge Discharge Current 63 μA (default is 16 μA)
+- Charge Discharge Time 0.5 μs (Default)
+- Electrode Sample Interval 16 ms (Default)
+- Proximity Detection is disabled (Default)
+- Only sensor pin 0 and 1 enabled (Default is all)
+
 ## Compatibility
 
 MCU                | Tested Works | Doesn't Work | Not Tested  | Notes
